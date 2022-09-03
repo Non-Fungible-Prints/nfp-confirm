@@ -6,9 +6,14 @@ export const client = createClient({
   url: API_URL,
 });
 
-export const getNFCPrinteds = `query nfcprinteds ($nftAddress: String! ) {
-    nfcprinteds(where: { nftInfo_nftAddres: $nftAddress }) {
-        nftInfo_nftAddres
-        nftInfo_isActive
+export const getNFCStatusChanged = `query NFCStatusChanged($nftAddress: String! ) {
+  nfcstatusChangeds(where: { nftInfo_nftAddress: $nftAddress }) {
+      nftInfo_nftAddress
+      nftInfo_isActive
+      nfcTag
+      nftInfo_nftId
+      nftInfo_nftUri
+      nftInfo_nftName
+      nftInfo_lastUpdated
       }
   }`;

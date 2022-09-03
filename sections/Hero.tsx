@@ -1,93 +1,146 @@
 /* eslint-disable jsx-a11y/label-has-associated-control */
-import Image from 'next/image';
 import { useEffect, useState } from 'react';
-import { CheckCircleIcon } from '@heroicons/react/24/solid';
+import { CheckCircleIcon, XCircleIcon } from '@heroicons/react/24/solid';
+import { useRouter } from 'next/router';
 import { SectionTemplate } from './SectionTemplate';
-import { client, getNFCPrinteds } from '../queries';
-import { Anchor } from '../components';
+import { client, getNFCStatusChanged } from '../queries';
+import { Loader } from '../components';
+
+// eslint-disable-next-line no-shadow
+enum State {
+  Loading = 'loading',
+  Address = 'address',
+  Validate = 'validate'
+}
 
 export const Hero = () => {
-  const [step, setStep] = useState(1);
-  const [nftAddress, setNftAddress] = useState<string>();
+  const router = useRouter();
+  const { contract, tag } = router.query;
 
-  useEffect(() => {
-    client
-      .query(getNFCPrinteds, { nftAddress })
-      .toPromise()
-      .then((data) => console.log(data));
-  }, [nftAddress]);
+  const [ localTag, setLocalTag ] = useState(tag);
+  const [ step, setStep ] = useState<State>(State.Loading);
+  const [ nftAddress, setNftAddress ] = useState(contract as string);
+  const [ lsNftAddress, setLsNftAddress ] = useState('');
+  const [ nfp, setNfp ] = useState<any>({});
 
-  const submitContact = async (event) => {
-    event.preventDefault();
-    alert(`So your name is ${event.target.name.value}?`);
+  const [ isValid, setIsValid ] = useState(true);
+
+  const setNftAddressToLocalStorage = (address: string) => localStorage.setItem('nftAddress', address);
+  const getNftAddressFromLocalStorage = () => localStorage.getItem('nftAddress');
+
+  const validateNFT = async () => {
+    if (lsNftAddress) setNftAddressToLocalStorage(lsNftAddress);
+
+    const response = await client
+      .query(getNFCStatusChanged, { nftAddress })
+      .toPromise();
+
+    if (response.data && response.data.nfcstatusChangeds) {
+      const nfps = response.data.nfcstatusChangeds;
+      console.log(nfps);
+      const sortedNfps = nfps.sort((a: any, b: any): any => {
+        if (parseInt(a.nftInfo_lastUpdated, 10) > parseInt(b.nftInfo_lastUpdated, 10)) {
+          return -1;
+        }
+
+        return 0;
+      });
+
+      const filteredNfp = sortedNfps.filter((nfpF: any) => nfpF.nfcTag === localTag)[0];
+      console.log(filteredNfp);
+
+      if (filteredNfp.nftInfo_nftAddress.toLowerCase() === lsNftAddress!.toLowerCase() && filteredNfp.nftInfo_isActive) {
+        setIsValid(true);
+      } else {
+        setIsValid(false);
+      }
+
+      setNfp(filteredNfp);
+    }
+
+    setStep(State.Validate);
   };
 
-  const step1 = () => (
-    <div className="flex items-center justify-center space-x-2 animate-bounce">
-      <div className="w-6 h-6 bg-purple-700 rounded-full" />
-      <div className="w-6 h-6 bg-purple-700 rounded-full" />
-      <div className="w-6 h-6 bg-purple-700 rounded-full" />
-    </div>
-  );
+  useEffect(() => {
+    // if (!localTag) return;
+
+    const nftAddressLs = getNftAddressFromLocalStorage();
+
+    if (typeof contract === 'string' && contract) setNftAddress(contract);
+    if (typeof tag === 'string' && tag) setLocalTag(tag);
+    if (nftAddressLs) setNftAddressToLocalStorage(nftAddressLs);
+
+    if (nftAddressLs) {
+      setLsNftAddress(nftAddressLs);
+      (async () => {
+        await validateNFT();
+      })();
+    } else {
+      setStep(State.Address);
+    }
+  }, [ step, nftAddress, tag ]);
 
   const step2 = () => (
-    <form className="flex flex-col" onSubmit={submitContact}>
+    <div className="flex flex-col">
       <label htmlFor="name" className="text-left mb-2 text-white">
         Contract Address
       </label>
       <input
         className="mb-4 border-2 border-white bg-black p-2 rounded-md text-white"
-        id="name"
-        name="name"
+        id="contract"
+        name="contract"
         type="text"
-        autoComplete="name"
-        value={nftAddress}
-        onChange={(event) => setNftAddress(event.target.value)}
+        value={lsNftAddress}
+        onChange={(event) => setLsNftAddress(event.target.value)}
         required
       />
       <button
         type="submit"
+        onClick={async () => { await validateNFT(); }}
         className="px-4 py-2 font-bold text-white bg-purple-700 rounded-md hover:bg-purple-800"
       >
         Validate NFP
       </button>
-    </form>
+    </div>
   );
 
   const step3 = () => (
     <div className="flex flex-col">
-      <h2 className="mx-auto text-xl font-bold text-gray-200">The Polacy</h2>
-      <img
-        className="mx-auto w-[50%] h-auto mb-2"
-        src="https://lh3.googleusercontent.com/Xcv-f21b5bg7ll5klxhdreC-Vr3DK_voyYamQQ6jHOO-JYcPTvcK60oKrSzRv-odhqGM_ofc4vvguVIX06xxMUj287YbyLuMXVwO=w600"
-        alt="polak"
-      />
-      <div className="mx-auto text-green-600 w-[50%] h-auto">
-        <CheckCircleIcon />
-      </div>
+      <h2 className="mx-auto text-xl font-bold text-gray-200">{nfp.nftInfo_nftName}</h2>
+
+      {isValid ? (
+        <div className="mx-auto text-green-600 w-[30%] h-auto">
+          <CheckCircleIcon />
+          <span className="text-bold">Valid</span>
+        </div>
+      ) : (
+        <div className="mx-auto text-red-600 w-[30%] h-auto">
+          <XCircleIcon />
+          <span className="text-bold">Not Valid</span>
+        </div>
+      )}
+
     </div>
   );
 
   const renderStep = () => {
-    if (step === 1) {
-      return step1();
-    }
-    if (step === 2) {
-      return step2();
-    }
-    if (step === 3) {
-      return step3();
-    }
+    const map = {
+      loading: (<Loader />),
+      address: step2(),
+      validate: step3(),
+    };
 
-    return step1();
+    return map[step as State];
   };
 
   return (
     <SectionTemplate id="hero">
       <div className="min-h-screen w-full opacity-40 absolute flex flex-col">
-        {[...Array(30)].map(() => (
+        {[ ...Array(20) ].map(() => (
           <h1 className="text-3xl font-bold text-gray-200 mx-auto">
-            Non Fungible <a className="text-purple-700">PRINTS</a>
+            Non Fungible
+            {' '}
+            <a className="text-purple-700">PRINTS</a>
           </h1>
         ))}
       </div>
@@ -96,20 +149,12 @@ export const Hero = () => {
         <div className="my-auto text-center bg-black">
           <div className="my-24">
             <h1 className="text-3xl font-bold text-gray-200 mb-8">
-              Non Fungible <a className="text-purple-700">PRINTS</a>
+              Non Fungible
+              {' '}
+              <a className="text-purple-700">PRINTS</a>
             </h1>
 
             {renderStep()}
-
-            <button className="text-white" type="button" onClick={() => setStep(1)}>
-              step-1
-            </button>
-            <button className="text-white" type="button" onClick={() => setStep(2)}>
-              step-2
-            </button>
-            <button className="text-white" type="button" onClick={() => setStep(3)}>
-              step-3
-            </button>
           </div>
         </div>
       </div>
