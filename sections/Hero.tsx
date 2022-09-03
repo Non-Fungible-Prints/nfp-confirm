@@ -23,7 +23,7 @@ export const Hero = () => {
   const [ lsNftAddress, setLsNftAddress ] = useState('');
   const [ nfp, setNfp ] = useState<any>({});
 
-  const [ isValid, setIsValid ] = useState(true);
+  const [ isValid, setIsValid ] = useState(false);
 
   const setNftAddressToLocalStorage = (address: string) => localStorage.setItem('nftAddress', address);
   const getNftAddressFromLocalStorage = () => localStorage.getItem('nftAddress');
@@ -37,7 +37,7 @@ export const Hero = () => {
 
     if (response.data && response.data.nfcstatusChangeds) {
       const nfps = response.data.nfcstatusChangeds;
-      console.log(nfps);
+      // console.log(nfps);
       const sortedNfps = nfps.sort((a: any, b: any): any => {
         if (parseInt(a.nftInfo_lastUpdated, 10) > parseInt(b.nftInfo_lastUpdated, 10)) {
           return -1;
@@ -47,12 +47,10 @@ export const Hero = () => {
       });
 
       const filteredNfp = sortedNfps.filter((nfpF: any) => nfpF.nfcTag === localTag)[0];
-      console.log(filteredNfp);
+      // console.log(filteredNfp);
 
-      if (filteredNfp.nftInfo_nftAddress.toLowerCase() === lsNftAddress!.toLowerCase() && filteredNfp.nftInfo_isActive) {
-        setIsValid(true);
-      } else {
-        setIsValid(false);
+      if (filteredNfp.nftInfo_nftAddress.toLowerCase() === lsNftAddress!.toLowerCase()) {
+        setIsValid(filteredNfp.nftInfo_isActive);
       }
 
       setNfp(filteredNfp);
