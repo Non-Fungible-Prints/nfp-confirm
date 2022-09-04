@@ -17,3 +17,9 @@ export const getNFCStatusChanged = `query NFCStatusChanged($nftAddress: String! 
       nftInfo_lastUpdated
       }
   }`;
+
+export const isNFCDestroyed = `query NFCDestroyed($localTag: String! ) {
+    nfcdestroyeds(where: { nfcTag: $localTag }) {
+        nfcTag
+        }
+    }`;

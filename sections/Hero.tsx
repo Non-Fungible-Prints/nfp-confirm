@@ -3,57 +3,64 @@ import { useEffect, useState } from 'react';
 import { CheckCircleIcon, XCircleIcon } from '@heroicons/react/24/solid';
 import { useRouter } from 'next/router';
 import { SectionTemplate } from './SectionTemplate';
-import { client, getNFCStatusChanged } from '../queries';
+import { client, getNFCStatusChanged, isNFCDestroyed } from '../queries';
 import { Loader } from '../components';
 
 // eslint-disable-next-line no-shadow
 enum State {
   Loading = 'loading',
   Address = 'address',
-  Validate = 'validate'
+  Validate = 'validate',
 }
 
 export const Hero = () => {
   const router = useRouter();
   const { contract, tag } = router.query;
 
-  const [ localTag, setLocalTag ] = useState(tag);
-  const [ step, setStep ] = useState<State>(State.Loading);
-  const [ nftAddress, setNftAddress ] = useState(contract as string);
-  const [ lsNftAddress, setLsNftAddress ] = useState('');
-  const [ nfp, setNfp ] = useState<any>({});
+  const [localTag, setLocalTag] = useState(tag);
+  const [step, setStep] = useState<State>(State.Loading);
+  const [nftAddress, setNftAddress] = useState(contract as string);
+  const [lsNftAddress, setLsNftAddress] = useState('');
+  const [nfp, setNfp] = useState<any>({});
 
-  const [ isValid, setIsValid ] = useState(false);
+  const [isValid, setIsValid] = useState(false);
 
-  const setNftAddressToLocalStorage = (address: string) => localStorage.setItem('nftAddress', address);
+  const setNftAddressToLocalStorage = (address: string) =>
+    localStorage.setItem('nftAddress', address);
   const getNftAddressFromLocalStorage = () => localStorage.getItem('nftAddress');
 
   const validateNFT = async () => {
     if (lsNftAddress) setNftAddressToLocalStorage(lsNftAddress);
 
-    const response = await client
-      .query(getNFCStatusChanged, { nftAddress })
-      .toPromise();
+    const isNFCDestroyedResponse = await client.query(isNFCDestroyed, { localTag }).toPromise();
 
-    if (response.data && response.data.nfcstatusChangeds) {
-      const nfps = response.data.nfcstatusChangeds;
-      // console.log(nfps);
-      const sortedNfps = nfps.sort((a: any, b: any): any => {
-        if (parseInt(a.nftInfo_lastUpdated, 10) > parseInt(b.nftInfo_lastUpdated, 10)) {
-          return -1;
+    console.log(isNFCDestroyedResponse);
+
+    if (isNFCDestroyedResponse?.data?.nfcdestroyeds.length) {
+      setIsValid(false);
+    } else {
+      const response = await client.query(getNFCStatusChanged, { nftAddress }).toPromise();
+
+      if (response.data && response.data.nfcstatusChangeds) {
+        const nfps = response.data.nfcstatusChangeds;
+        // console.log(nfps);
+        const sortedNfps = nfps.sort((a: any, b: any): any => {
+          if (parseInt(a.nftInfo_lastUpdated, 10) > parseInt(b.nftInfo_lastUpdated, 10)) {
+            return -1;
+          }
+
+          return 0;
+        });
+
+        const filteredNfp = sortedNfps.filter((nfpF: any) => nfpF.nfcTag === localTag)[0];
+        // console.log(filteredNfp);
+
+        if (filteredNfp.nftInfo_nftAddress.toLowerCase() === lsNftAddress!.toLowerCase()) {
+          setIsValid(filteredNfp.nftInfo_isActive);
         }
 
-        return 0;
-      });
-
-      const filteredNfp = sortedNfps.filter((nfpF: any) => nfpF.nfcTag === localTag)[0];
-      // console.log(filteredNfp);
-
-      if (filteredNfp.nftInfo_nftAddress.toLowerCase() === lsNftAddress!.toLowerCase()) {
-        setIsValid(filteredNfp.nftInfo_isActive);
+        setNfp(filteredNfp);
       }
-
-      setNfp(filteredNfp);
     }
 
     setStep(State.Validate);
@@ -76,7 +83,7 @@ export const Hero = () => {
     } else {
       setStep(State.Address);
     }
-  }, [ step, nftAddress, tag ]);
+  }, [step, nftAddress, tag]);
 
   const step2 = () => (
     <div className="flex flex-col">
@@ -94,7 +101,9 @@ export const Hero = () => {
       />
       <button
         type="submit"
-        onClick={async () => { await validateNFT(); }}
+        onClick={async () => {
+          await validateNFT();
+        }}
         className="px-4 py-2 font-bold text-white bg-purple-700 rounded-md hover:bg-purple-800"
       >
         Validate NFP
@@ -117,13 +126,12 @@ export const Hero = () => {
           <span className="text-bold">Not Valid</span>
         </div>
       )}
-
     </div>
   );
 
   const renderStep = () => {
     const map = {
-      loading: (<Loader />),
+      loading: <Loader />,
       address: step2(),
       validate: step3(),
     };
@@ -134,11 +142,9 @@ export const Hero = () => {
   return (
     <SectionTemplate id="hero">
       <div className="min-h-screen w-full opacity-40 absolute flex flex-col">
-        {[ ...Array(20) ].map(() => (
+        {[...Array(20)].map(() => (
           <h1 className="text-3xl font-bold text-gray-200 mx-auto">
-            Non Fungible
-            {' '}
-            <a className="text-purple-700">PRINTS</a>
+            Non Fungible <a className="text-purple-700">PRINTS</a>
           </h1>
         ))}
       </div>
@@ -147,9 +153,7 @@ export const Hero = () => {
         <div className="my-auto text-center bg-black">
           <div className="my-24">
             <h1 className="text-3xl font-bold text-gray-200 mb-8">
-              Non Fungible
-              {' '}
-              <a className="text-purple-700">PRINTS</a>
+              Non Fungible <a className="text-purple-700">PRINTS</a>
             </h1>
 
             {renderStep()}
