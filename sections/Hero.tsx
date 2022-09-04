@@ -34,8 +34,6 @@ export const Hero = () => {
 
     const isNFCDestroyedResponse = await client.query(isNFCDestroyed, { localTag }).toPromise();
 
-    console.log(isNFCDestroyedResponse);
-
     if (isNFCDestroyedResponse?.data?.nfcdestroyeds.length) {
       setIsValid(false);
     } else {
